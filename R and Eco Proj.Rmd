@@ -1,0 +1,310 @@
+---
+title: "R and Ecology"
+author: "Elizabeth Linville"
+date: "5/18/2020"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+
+Project Question: Are the populations of Spotted Hyenas (Crocuta crocuta) inversely proportional to the populations of African Hunting Dogs (Lycaon pictus)?
+
+This is an idea that has been stated in the literature in the past, and this project may hopefully draw conclusions to either support or refute this idea.
+
+```{r}
+#install.packages("rgbif")
+#install.packages("mapview")
+#install.packages("scrubr")
+```
+
+
+```{r}
+library(rgbif)
+library(ggplot2)
+library(dplyr)
+library(scrubr)
+library(mapview)
+library(sp)
+```
+
+#Ecology Project
+This project will explore the global biodiversity information facility. It will focus on species that were used in the Fossil project as a means for comparison of population occurence and species density.
+
+##Species Occurrence Data Mining - Hyenas
+
+```{r}
+hyen <- name_suggest(q = "Hyaenidae", rank = "family")
+occ_search(taxonKey = hyen$key, return = "meta")$count
+spdat <- occ_search(taxonKey = hyen$key, return = "data", limit = 1000)
+```
+
+```{r}
+spdat
+```
+
+##Cleaning and Filtering the Data
+
+```{r}
+hyen_dat <- select(spdat, decimalLatitude, decimalLongitude, genus, species) %>% na.omit(hyen_dat)
+colnames(hyen_dat) <- c("lat", "long", "genus", "species")
+
+hyen_dat
+```
+
+Changing the order of the data frame, so it improves readability
+
+```{r}
+hyen_dat <- hyen_dat %>% select(genus, species, lat, long)
+hyen_dat
+```
+
+Exploration into the occurences of each species
+```{r}
+ggplot(hyen_dat)+ geom_bar(aes(x = species))
+```
+
+Based off the database, majority of the occurence data is from the modern Spotted Hyena (Crocuta crocuta), with much less representation for hte other three existing hyena species (Brown Hyena, Striped Hyana, Aardwolf, respectively)
+
+Cleaning any improbable cooridnate points...
+
+```{r}
+hyen_dat <- dframe(hyen_dat) %>% coord_impossible() %>% coord_unlikely()
+
+```
+
+```{r}
+hyen_dat
+```
+
+Now the data is clean and ready to be mapped
+
+##Mapping Geographic Distribution
+Using the sp package, the lat and long points will now be converted into spatial data so they can be mapped. The standard coordinate system "4326" will be used.
+
+
+```{r}
+hyen_map <- SpatialPoints(coords = cbind(hyen_dat$long, hyen_dat$lat),
+                          proj4string = CRS("+init=epsg:4326"))
+```
+
+```{r}
+hyen_map
+```
+
+Now to add the species data to the spatial data frame..
+
+```{r}
+hyen_map$species <- hyen_dat$species
+```
+
+```{r}
+mapview(hyen_map)
+```
+
+
+Basic Analysis of Map: Most specimens of Crocuta crocuta are focused around the southern regions of Africa, with a trend northward along the eastern coast, and then spreading out again towards the west. Unfortunately, it seems that the spotted hyena is no longer present in historic territories in the middle east. Instead, the striped hyena appears to be heavily focused in this region, with another large population around Kenya. The aardwolf and brown hyena are almost exclusively found in southern Africa. Large concentrations of these populations appear to be following game preserves and protecting environments. Hyenas are absent from the rainforest regions of central Africa (ie the Congo and Cameroon). 
+
+##Species Density Analysis
+
+```{r}
+install.packages("usdm")
+install.packages("GIStools")
+install.packages("maps")
+install.packages("RcolorBrewer")
+install.packages("ggspatial")
+
+library(sp)
+library(raster)
+library(usdm)
+library(mapview)
+library(rgbif)
+library(scrubr)
+library(maps)
+library(ggplot2)
+library(RColorBrewer)
+library(ggspatial)
+```
+```{r}
+install.packages("maptools")
+library(maptools)
+```
+
+```{r}
+install.packages("GIStools")
+library(GISTools)
+```
+
+
+```{r}
+mapview(hyen_map, map.types = "Esri.NatGeoWorldMap", layer.name = "Species",
+        alpha = 0.5)
+```
+
+The following countries will be focused on for Crocuta crocuta and the African Hunting Dog:
+
+Botswana
+Namibia
+Mozambique
+Zimbabwe
+Tanzania
+Kenya
+Zambia
+South Africa
+
+```{r}
+Botswana<-raster::getData('GADM', country='BWA', level=0)
+Namibia<-raster::getData('GADM', country='NAM', level=0)
+Mozambique<-raster::getData('GADM', country='MOZ', level=0)
+Zimbabwe<-raster::getData('GADM', country='ZWE', level=0)
+Tanzania<-raster::getData('GADM', country='TZA', level=0)
+Kenya<-raster::getData('GADM', country='KEN', level=0)
+Zambia<-raster::getData('GADM', country='ZMB', level=0)
+SouthAfrica<-raster::getData('GADM', country="ZAF", level=0)
+```
+
+```{r}
+proj4string(Botswana) <- projection(hyen_map)
+proj4string(Namibia) <- projection(hyen_map)
+proj4string(Mozambique) <- projection(hyen_map)
+proj4string(Zimbabwe) <- projection(hyen_map)
+proj4string(Tanzania) <- projection(hyen_map)
+proj4string(Kenya) <- projection(hyen_map)
+proj4string(Zambia) <- projection(hyen_map)
+proj4string(SouthAfrica) <- projection(hyen_map)
+```
+
+```{r}
+plot(Botswana)
+```
+
+Verifying that the spatial data has been imported correctly. Now the density of the spotted hyena will be calculated:
+
+```{r}
+countsbots <- poly.counts(hyen_map, Botswana) 
+countsnam <- poly.counts(hyen_map, Namibia)
+countsmoz<- poly.counts(hyen_map, Mozambique)
+countszim<- poly.counts(hyen_map, Zimbabwe)
+countstan<- poly.counts(hyen_map, Tanzania)
+countsken<- poly.counts(hyen_map, Kenya)
+countszam<- poly.counts(hyen_map, Zambia)
+countssa<- poly.counts(hyen_map, SouthAfrica)
+```
+
+```{r}
+BotsArea <- raster::area(Botswana)/1000
+NamArea <- raster::area(Namibia)/1000
+MozArea <- raster::area(Mozambique)/1000
+ZimArea <- raster::area(Zimbabwe)/1000
+TanArea <- raster::area(Tanzania)/1000
+KenArea <- raster::area(Kenya)/1000
+ZamArea <- raster::area(Zambia)/1000
+SAfArea <- raster::area(SouthAfrica)/1000
+```
+
+```{r}
+BotsArea
+```
+Verifying that the area has been converted to km instead of m
+
+Finding the density for each country:
+```{r}
+densBots <- countsbots / BotsArea
+densNam <- countsnam / NamArea
+densMoz <- countsmoz / MozArea
+densZim <- countszim / ZimArea
+densTan <- countstan/ TanArea
+densKen <- countsken / KenArea
+densZam <- countszam / ZamArea
+densSA <- countssa / SAfArea
+```
+
+```{r}
+densBots
+```
+
+
+After performing the above work, it became obvious that writing a function would be better suited here. I will write a function (shown below) and then use this for the African Hunting Dog analysis to streamline the code:
+
+```{r}
+Dens_cal <- function(data, country) {
+  countsbots <- poly.counts(data, country)
+  
+  CountryArea <- raster::area(country)/1000
+  
+  denscountry <- countsbots / CountryArea
+  
+  return (denscountry)
+  
+}
+```
+
+Now to check the function...
+
+```{r}
+Dens_cal(hyen_map, Botswana)
+```
+
+The function works appropriately and has returned the same result for Botswana.
+
+Now to make a matrix with the results:
+
+```{r}
+countries<-c("Botswana", "Namibia", "Mozambique", "Zimbabwe", "Tanzania", "Kenya", "Zambia", "SouthAfrica")
+denscount<-c(densBots, densNam, densMoz, densZim, densTan, densKen, densZam, densSA)
+hy_dens_plot<-data.frame(countries, denscount)
+```
+
+```{r}
+hy_dens_plot
+```
+
+Adding in a ratio column to the above matrix:
+
+```{r}
+hy_dens_plot$Perc <- hy_dens_plot$denscount / sum(hy_dens_plot$denscount) * 100
+hy_dens_plot$Perc <- round(hy_dens_plot$Perc, digits = 2)
+hy_dens_plot$Perc <- paste(hy_dens_plot$Perc, "%")
+```
+
+```{r}
+hy_dens_plot
+```
+
+And now to graph the visualization
+
+```{r}
+hy_viz <- ggplot(hy_dens_plot, aes(x=countries, y=denscount, fill = countries))+
+  geom_bar(stat="identity", color = "black")+ 
+  labs(title = "Density of Crocuta crocuta  Observations in Africa",
+       subtitle = paste("GBIF Records n =", length(hyen_map),""),
+       color = "Percentage",
+       fill = "Percentage")+
+  theme_minimal()+
+  xlab("Countries")+ 
+  ylab("Density")+
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5),
+        text = element_text(size=11))+
+  scale_fill_brewer(palette="BuPu")+
+  geom_text(aes(label = hy_dens_plot$Perc), vjust = -.5, hjust=0.3) 
+```
+
+```{r}
+hy_viz
+```
+
+
+
+
+
+
+
