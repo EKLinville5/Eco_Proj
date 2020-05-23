@@ -116,11 +116,11 @@ Basic Analysis of Map: Most specimens of Crocuta crocuta are focused around the 
 ##Species Density Analysis
 
 ```{r}
-install.packages("usdm")
-install.packages("GIStools")
-install.packages("maps")
-install.packages("RcolorBrewer")
-install.packages("ggspatial")
+#install.packages("usdm")
+#install.packages("GIStools")
+#install.packages("maps")
+#install.packages("RcolorBrewer")
+#install.packages("ggspatial")
 
 library(sp)
 library(raster)
@@ -134,13 +134,42 @@ library(RColorBrewer)
 library(ggspatial)
 ```
 ```{r}
-install.packages("maptools")
+#install.packages("maptools")
 library(maptools)
 ```
 
 ```{r}
-install.packages("GIStools")
+#install.packages("GIStools")
 library(GISTools)
+```
+
+Isolating just the spotted hyena..
+
+```{r}
+hyen <- name_suggest(q = "Crocuta crocuta", rank = "species")
+occ_search(taxonKey = hyen$key, return = "meta")$count
+spdat <- occ_search(taxonKey = hyen$key, return = "data", limit = 1000)
+```
+
+```{r}
+hyen_dat <- dplyr::select(spdat, decimalLatitude, decimalLongitude, genus, species) %>% na.omit(hyen_dat)
+colnames(hyen_dat) <- c("lat", "long", "genus", "species")
+
+hyen_dat <- hyen_dat %>% dplyr::select(genus, species, lat, long)
+
+```
+
+```{r}
+hyen_dat <- dframe(hyen_dat) %>% coord_impossible() %>% coord_unlikely()
+```
+
+```{r}
+hyen_map <- SpatialPoints(coords = cbind(hyen_dat$long, hyen_dat$lat),
+                          proj4string = CRS("+init=epsg:4326"))
+```
+
+```{r}
+hyen_map$species <- hyen_dat$species
 ```
 
 
@@ -236,7 +265,7 @@ After performing the above work, it became obvious that writing a function would
 
 ```{r}
 Dens_cal <- function(data, country) {
-  countsbots <- poly.counts(data, country)
+  countscntry <- poly.counts(data, country)
   
   CountryArea <- raster::area(country)/1000
   
@@ -301,6 +330,178 @@ hy_viz <- ggplot(hy_dens_plot, aes(x=countries, y=denscount, fill = countries))+
 ```{r}
 hy_viz
 ```
+
+Spotted hyenas have the greatest density in Kenya, South Africa, and Tanzania, respectively.
+
+##Second Species Analysis
+
+For this portion of the proejct, I will perform the same steps above with another species. Results will then be used to potentially answer the project question.
+
+```{r}
+hundg <- name_suggest(q = "Lycaon pictus", rank = "species")
+occ_search(taxonKey = hundg$key, return = "meta")$count
+spdat_dog <- occ_search(taxonKey = hundg$key, return = "data", limit = 1000)
+```
+
+```{r}
+spdat_dog
+```
+
+```{r}
+dog_dat <- dplyr::select(spdat_dog, decimalLatitude, decimalLongitude, genus, species) %>% na.omit(dog_dat)
+colnames(dog_dat) <- c("lat", "long", "genus", "species")
+
+dog_dat
+```
+
+```{r}
+dog_dat <- dog_dat %>% dplyr::select(genus, species, lat, long)
+dog_dat
+```
+
+```{r}
+dog_map <- SpatialPoints(coords = cbind(dog_dat$long, dog_dat$lat),
+                          proj4string = CRS("+init=epsg:4326"))
+
+```
+
+```{r}
+dog_map$species <- dog_dat$species
+```
+
+```{r}
+dog_dat <- dframe(dog_dat) %>% coord_impossible() %>% coord_unlikely()
+```
+
+
+```{r}
+mapview(dog_map)
+```
+
+specimen ID 338 and 384 are problematic; African Hunting Dogs (Lycaon pictus) exclusively live in Africa, so these points are inaccurate. Because specific countries are being selected, these points don't necessarily have to be removed at this time, but it is important to recognize that these points are inaccurate.
+
+Immediately, it is obvious that there are some regions where there are greater populations of African Hunting Dogs than Spotted Hyenas. For example, there are populations in Ethopia, Uganda, and the Democratic REprublic of the Congo. There is also a large population in Angola. All of these places lacked hyenas, so it is an interesting first development.
+
+```{r}
+mapview(dog_map, map.types = "Esri.NatGeoWorldMap", layer.name = "Species",
+        alpha = 0.5)
+```
+
+The following countries will be focused on in order to stay consistent with the spotted hyena.
+
+Botswana
+Namibia
+Mozambique
+Zimbabwe
+Tanzania
+Kenya
+Zambia
+South Africa
+
+```{r}
+proj4string(Botswana) <- projection(dog_map)
+proj4string(Namibia) <- projection(dog_map)
+proj4string(Mozambique) <- projection(dog_map)
+proj4string(Zimbabwe) <- projection(dog_map)
+proj4string(Tanzania) <- projection(dog_map)
+proj4string(Kenya) <- projection(dog_map)
+proj4string(Zambia) <- projection(dog_map)
+proj4string(SouthAfrica) <- projection(dog_map)
+```
+
+Using the function that was written above, I will now calculcate the densities of these populations in the selected countries
+
+```{r}
+densBots_dog <- Dens_cal(dog_map, Botswana)
+densNam_dog <- Dens_cal(dog_map, Namibia)
+densMoz_dog <- Dens_cal(dog_map, Mozambique)
+densZim_dog <- Dens_cal(dog_map, Zimbabwe)
+densTan_dog <- Dens_cal(dog_map, Tanzania)
+densKen_dog <- Dens_cal(dog_map, Kenya)
+densZam_dog <- Dens_cal(dog_map, Zambia)
+densSA_dog <- Dens_cal(dog_map, SouthAfrica)
+```
+
+```{r}
+countries<-c("Botswana", "Namibia", "Mozambique", "Zimbabwe", "Tanzania", "Kenya", "Zambia", "SouthAfrica")
+denscountry<-c(densBots_dog, densNam_dog, densMoz_dog, densZim_dog, densTan_dog, densKen_dog, densZam_dog, densSA_dog)
+dog_dens_plot<-data.frame(countries, denscountry)
+dog_dens_plot
+```
+
+```{r}
+dog_dens_plot$Perc <- dog_dens_plot$denscountry / sum(dog_dens_plot$denscountry) * 100
+dog_dens_plot$Perc <- round(dog_dens_plot$Perc, digits = 2)
+dog_dens_plot$Perc <- paste(dog_dens_plot$Perc, "%")
+dog_dens_plot
+```
+
+```{r}
+dog_viz <- ggplot(dog_dens_plot, aes(x=countries, y=denscountry, fill = countries))+
+  geom_bar(stat="identity", color = "black")+ 
+  labs(title = "Density of Lycaon pictus Observations in Africa",
+       subtitle = paste("GBIF Records n =", length(dog_map),""),
+       color = "Percentage",
+       fill = "Percentage")+
+  theme_minimal()+
+  xlab("Countries")+ 
+  ylab("Density")+
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5),
+        text = element_text(size=11))+
+  scale_fill_brewer(palette="PuBuGn")+
+  geom_text(aes(label = dog_dens_plot$Perc), vjust = -.5, hjust=0.3) 
+```
+
+```{r}
+dog_viz
+```
+
+Based on the initial data, African Hunting dogs have greater population densities in Zimbabwe, Botswana, and Kenya.
+
+##Final Comparative Analysis
+
+Now to create a matrix that shows both species densities in all represented countries:
+
+```{r}
+dog_dens_plot
+```
+
+```{r}
+dog_perc <- dplyr::select(dog_dens_plot, Perc)
+hy_perc <- dplyr::select(hy_dens_plot, Perc)
+```
+
+```{r}
+sp_dens_plot<-data.frame(countries, denscount, hy_perc, denscountry, dog_perc)
+colnames(sp_dens_plot) <- c("countries","hyena_density", "hyena_perc", "dog_density", "dog_perc")
+sp_dens_plot
+```
+
+Now to experiment with different visualizations...
+```{r}
+ggplot(sp_dens_plot)+ geom_point(aes(x = hyena_perc, y = dog_perc, color = countries))
+```
+
+```{r}
+ggplot(sp_dens_plot, aes(x=hyena_perc, y=dog_perc, fill = countries))+
+  geom_bar(stat="identity", color = "black")+ 
+   theme_minimal()+
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5),
+        text = element_text(size=11))+
+  scale_fill_brewer(palette="Set3")+
+  geom_text(aes(label = dog_dens_plot$Perc), vjust = -.5, hjust=0.3)
+```
+The above visualizations are not very helpful - now I will have to reorganize the dataframe so that I can plot the densities for both species on a stacked bar chart.
+
+
+Map both species on one map
+
+
+
+bar graph density with both species
+
 
 
 
