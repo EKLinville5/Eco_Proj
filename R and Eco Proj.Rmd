@@ -351,7 +351,7 @@ spdat_dog
 dog_dat <- dplyr::select(spdat_dog, decimalLatitude, decimalLongitude, genus, species) %>% na.omit(dog_dat)
 colnames(dog_dat) <- c("lat", "long", "genus", "species")
 
-dog_dat
+#dog_dat
 ```
 
 ```{r}
@@ -426,7 +426,7 @@ densSA_dog <- Dens_cal(dog_map, SouthAfrica)
 countries<-c("Botswana", "Namibia", "Mozambique", "Zimbabwe", "Tanzania", "Kenya", "Zambia", "SouthAfrica")
 denscountry<-c(densBots_dog, densNam_dog, densMoz_dog, densZim_dog, densTan_dog, densKen_dog, densZam_dog, densSA_dog)
 dog_dens_plot<-data.frame(countries, denscountry)
-dog_dens_plot
+#dog_dens_plot
 ```
 
 ```{r}
@@ -464,13 +464,14 @@ Based on the initial data, African Hunting dogs have greater population densitie
 Now to create a matrix that shows both species densities in all represented countries:
 
 ```{r}
-dog_dens_plot
+#dog_dens_plot
 ```
 
 ```{r}
 dog_perc <- dplyr::select(dog_dens_plot, Perc)
 hy_perc <- dplyr::select(hy_dens_plot, Perc)
 ```
+
 
 ```{r}
 sp_dens_plot<-data.frame(countries, denscount, hy_perc, denscountry, dog_perc)
@@ -493,18 +494,83 @@ ggplot(sp_dens_plot, aes(x=hyena_perc, y=dog_perc, fill = countries))+
   scale_fill_brewer(palette="Set3")+
   geom_text(aes(label = dog_dens_plot$Perc), vjust = -.5, hjust=0.3)
 ```
+
+
 The above visualizations are not very helpful - now I will have to reorganize the dataframe so that I can plot the densities for both species on a stacked bar chart.
 
+##New Data Frame with both species
+make new data frame - countries, density, species, percentage  
 
-Map both species on one map
+```{r}
+Dog_Sp <- rep("Lycaon pictus", length(countries))
+Dog_Pop_dens <- data.frame(countries, denscountry, dog_perc, Dog_Sp)
+colnames(Dog_Pop_dens) <- c("Country", "Density", "Percentage", "Species")
+
+#Dog_Pop_dens
+
+  
+```
+
+```{r}
+Hy_Sp <- rep("Crocuta crocuta", length(countries))
+Hy_Pop_dens <- data.frame(countries, denscount, hy_perc, Hy_Sp)
+colnames(Hy_Pop_dens) <- c("Country", "Density", "Percentage", "Species")
+
+#Hy_Pop_dens
+```
+
+```{r}
+Dens_data <- rbind(Hy_Pop_dens, Dog_Pop_dens) %>%
+  dplyr::select(Country, Species, Density, Percentage) %>%
+  arrange(Country)
+Dens_data
+```
 
 
 
-bar graph density with both species
+```{r}
+ggplot(Dens_data, aes(x=Country, y=Density, fill = Species))+
+  geom_bar(stat="identity", color = "black")+ 
+  labs(title = "Density of Lycaon pictus and Crocuta Crocuta Observations in Africa",
+       subtitle = paste("GBIF Records n =", length(dog_map + hyen_map),""),
+       color = "Percentage",
+       fill = "Percentage")+
+  theme_minimal()+
+  xlab("Country")+ 
+  ylab("Density")+
+  theme(plot.title = element_text(hjust = 0.5),
+        plot.subtitle = element_text(hjust = 0.5),
+        text = element_text(size=11))+
+  scale_fill_brewer(palette="Set2")
+```
+
+From a simple analysis of the above comparison, there are some locations that may support the notion that these populations are inversely proportional. Locations like Kenya, Mozambique, South Africa, Zimbabew, Tanzania, and Zambia all seem to have inverse densities for these two species. In Kenya, spotted hyena populations are incredibly high, whereas the proportional hunting dog population is much lower. In contrast, there is a higher dog population in Mozambique to an almost non-existant hyena population.
 
 
+##Map both species on one map
+make new data frame combining spatial data from both, then plot into mapview
 
+```{r}
+dog_map
+```
 
+```{r}
+hyen_map
+```
+
+```{r}
+sp_comb <- rbind(hyen_map, dog_map)
+```
+
+```{r}
+mapview(sp_comb, alpha = 0.5)
+```
+
+The above map highlights some of the evidence that was already displayed in the visualizations, but it also brings to light that there are other countries that were eliminated from this analysis that may be useful when examining the question. Places like Angola, Eswatini, Uganda, Rwanda, etc. may give additional evidence to either support or refute the idea that these two species populations are inversely proportional to one another.
+
+#Conclusion
+
+Ultimately, I think the results of this project may be in the beginning stages of supporting the idea of inversely proportional population densities for the Spotted Hyena and the African Hunting dog. Due to high competition over similar prey sources, the population of Spotted Hyenas may be acting as a limiting factor for the growth and distribution of the African Hunting Dogs. Conflict between packs and clans may be an additional factor for both populations. More research would be necessary to come to a definitive answer, including a wider range of countries and including lion populations as an additional assessment. 
 
 
 
